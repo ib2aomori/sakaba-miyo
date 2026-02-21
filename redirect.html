@@ -4,9 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>注文ページへ</title>
-  <!-- ★ 次の2か所をあなたのGASのURL（https://script.google.com/.../exec まで）に書き換えてから、GitHub Pages等にアップロードしてください -->
-  <!-- 1) 下の content="0;url=ここ" のURL ／ 2) script内の var GAS_BASE = "ここ" -->
-  <meta id="meta-refresh" http-equiv="refresh" content="0;url=https://script.google.com/macros/s/AKfycbzHFbUHzwJGe8LG5_8o4TAq1WCWtW53OLBcfmAMnDEmrXbsr19jGgVJxooKhjDnA_Qk/exec">
+  <!-- このサイト内の order.html に飛ばす（Safari/Chrome/インアプリどれでも同じ注文ページが開く） -->
+  <meta id="meta-refresh" http-equiv="refresh" content="0;url=order.html">
   <style>
     body { font-family: sans-serif; text-align: center; padding: 2rem; background: #faf6f1; }
     a { color: #1e3a5f; font-weight: bold; font-size: 1.1rem; }
@@ -15,16 +14,13 @@
 </head>
 <body>
   <p>注文ページへ移動しています...</p>
-  <p><a id="openLink" href="">開かない場合はここをタップ</a></p>
+  <p><a id="openLink" href="order.html">開かない場合はここをタップ</a></p>
   <script>
     (function() {
-      var GAS_BASE = "https://script.google.com/macros/s/AKfycbzHFbUHzwJGe8LG5_8o4TAq1WCWtW53OLBcfmAMnDEmrXbsr19jGgVJxooKhjDnA_Qk/exec";
-      var qs = window.location.search ? window.location.search.slice(1) : "";
-      var target = GAS_BASE + (qs ? "?" + qs : "");
-      var link = document.getElementById("openLink");
-      var meta = document.getElementById("meta-refresh");
-      if (link) link.href = target;
-      if (meta) meta.content = "0;url=" + target;
+      var qs = window.location.search ? window.location.search : "";
+      var target = "order.html" + qs;
+      document.getElementById("openLink").href = target;
+      document.getElementById("meta-refresh").content = "0;url=" + target;
       window.location.replace(target);
     })();
   </script>

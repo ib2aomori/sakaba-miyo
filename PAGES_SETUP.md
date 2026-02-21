@@ -1,16 +1,20 @@
-# GitHub Pages で redirect を公開する（あなたがやること）
+# GitHub Pages で注文サイトを公開する（あなたがやること）
 
 このフォルダはすでに git の初期化と初回コミットまで済んでいます。
 
-## 1. redirect.html のURLを書き換える（あなただけ）
+**構成（B: 普通のサイト）**
+- **order.html** … 注文画面。GitHub Pages 上で表示され、メニュー・注文送信は GAS に JSONP / POST で取得・送信します。Safari / Chrome / インアプリブラウザのどれでも同じように開けます。
+- **redirect.html** … QR の行き先。`?seat=A1` を付けたまま **order.html** にリダイレクトします。最初に開くのは GitHub のページだけなので「ファイルを開けません」が出ません。
+- **GAS** … 管理画面・メニューAPI・注文受付のまま。スプレッドシート連携は変更なし。
 
-- `redirect.html` を開き、**2か所** の GAS のURLを、あなたの注文用URL（`https://script.google.com/.../exec` まで）に書き換える。
-  - 9行目: `<meta id="meta-refresh" ... content="0;url=ここ">` の `url=` の後
-  - 20行目: `var GAS_BASE = "ここ";`
-- 書き換えたら保存し、コミットする:
-  ```bash
-  git add redirect.html && git commit -m "GASのURLを自分のものに変更"
-  ```
+## 1. order.html の GAS のURL（あなただけ）
+
+注文データは **order.html** が GAS の API に取りに行きます。別の GAS デプロイURLを使う場合は、**order.html** を開き、先頭の `<script>` 内にある **`var GAS_BASE = "https://script.google.com/.../exec";`** を、あなたの GAS の「exec まで」のURLに書き換えてください。
+
+書き換えたら保存し、コミット:
+```bash
+git add order.html && git commit -m "GASのURLを自分のものに変更"
+```
 
 ## 2. GitHub でリポジトリを作る（あなただけ）
 
@@ -21,12 +25,12 @@
 
 ## 3. リモートを追加して push（ターミナル）
 
-GitHub の「Quick setup」に表示されているURLを使って、**あなたのユーザー名・リポジトリ名**に書き換えて実行:
+**リモート** = 「push したときにコードを送る先」＝ GitHub のリポジトリのURLです。いまはすでに `https://github.com/ib2aomori/sakaba-miyo.git` に設定済みです。
+
+あとは push するだけ:
 
 ```bash
 cd /Users/yukiito/Desktop/programing/sakaba_miyo
-git remote add origin https://github.com/あなたのユーザー名/リポジトリ名.git
-git branch -M main
 git push -u origin main
 ```
 
@@ -39,6 +43,6 @@ git push -u origin main
 
 ## 5. QRの行き先にする
 
-- 席別の例: `https://あなたのユーザー名.github.io/リポジトリ名/redirect.html?seat=A1`
-- 共通なら: `https://あなたのユーザー名.github.io/リポジトリ名/redirect.html`
+- 席別の例: `https://ib2aomori.github.io/sakaba-miyo/redirect.html?seat=A1`
+- 共通なら: `https://ib2aomori.github.io/sakaba-miyo/redirect.html`
 - このURLをQRコード（または短縮URLの行き先）にすれば、iPhone標準カメラ・Instagramでも「ファイルを開けません」を避けられる。

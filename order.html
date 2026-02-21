@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>注文 - 酒場みよ</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Noto Serif JP", serif; font-size: 52px; background: #faf6f1; color: #2c2c2c; min-height: 100vh; line-height: 1.5; padding-bottom: env(safe-area-inset-bottom, 0); }
+  header { background: #1e3a5f; color: #fff; padding: 20px 24px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 100; padding-top: max(20px, env(safe-area-inset-top)); }
+  .logo { font-size: 4.2rem; font-weight: 600; letter-spacing: 0.15em; }
+  .seat-badge { background: #c45c3e; color: #fff; padding: 14px 24px; border-radius: 24px; font-size: 52px; font-weight: 600; margin-left: auto; }
+  .nomi-banner { display: none; padding: 20px 24px; }
+  .nomi-banner.show { display: block; }
+  .nomi-box { border-radius: 16px; padding: 22px 26px; }
+  .nomi-box.active { background: #1e3a5f; color: #fff; }
+  .nomi-box.lo-over { background: #b54a35; color: #fff; }
+  .nomi-box.expired { background: #6b6b6b; color: #fff; }
+  .nomi-title { font-size: 44px; opacity: .9; margin-bottom: 8px; }
+  .nomi-timers { display: flex; gap: 24px; align-items: baseline; }
+  .nomi-timer-item { text-align: center; }
+  .nomi-timer-label { font-size: 38px; opacity: .85; display: block; margin-bottom: 4px; }
+  .nomi-timer-val { font-size: 68px; font-weight: 700; }
+  .nomi-timer-val.warn { color: #f0d060; }
+  .nomi-timer-val.danger { color: #ffb4a4; animation: blink .8s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.5} }
+  .nomi-divider { color: rgba(255,255,255,.5); font-size: 60px; }
+  .nomi-status-msg { font-size: 46px; font-weight: 600; margin-top: 10px; }
+  .section { padding: 28px 24px 14px; }
+  .section-title { font-size: 52px; font-weight: 700; color: #1e3a5f; border-left: 6px solid #c45c3e; padding-left: 16px; margin-bottom: 18px; }
+  .menu-grid { display: grid; gap: 22px; padding: 0 24px 26px; }
+  .item-card { background: #fefefe; border-radius: 18px; padding: 26px 28px; display: flex; align-items: center; gap: 22px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .item-card.disabled { opacity: .45; pointer-events: none; }
+  .item-info { flex: 1; min-width: 0; }
+  .item-name { font-size: 54px; font-weight: 600; line-height: 1.4; }
+  .item-price { font-size: 48px; margin-top: 10px; color: #555; }
+  .item-price .price-num.free { color: #2d7a4a; }
+  .item-price .price-num.regular { color: #1e3a5f; }
+  .item-price .price-num.disabled { color: #999; }
+  .nomi-badge { display: inline-block; font-size: 34px; border-radius: 10px; padding: 6px 14px; margin-left: 12px; font-weight: 600; }
+  .nomi-badge.included { background: #2d7a4a; color: #fff; }
+  .nomi-badge.lo-over { background: #b54a35; color: #fff; }
+  .nomi-badge.expired { background: #6b6b6b; color: #fff; }
+  .qty-ctrl { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .qty-btn { width: 88px; height: 88px; border: none; border-radius: 50%; font-size: 56px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .qty-btn.minus { background: #e8e4de; color: #555; }
+  .qty-btn.plus { background: #1e3a5f; color: #fff; }
+  .qty-num { width: 72px; text-align: center; font-size: 56px; font-weight: 700; }
+  .note-area textarea { width: 100%; border: 1px solid #ddd; border-radius: 14px; padding: 22px 24px; font-size: 52px; resize: none; font-family: inherit; background: #fefefe; }
+  .order-bar { position: sticky; bottom: 0; background: #fefefe; padding: 26px 24px; padding-bottom: max(26px, env(safe-area-inset-bottom)); box-shadow: 0 -2px 12px rgba(0,0,0,.06); }
+  .order-summary { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px; }
+  .order-summary .label { font-size: 46px; color: #666; }
+  .order-summary .total { font-size: 78px; font-weight: 700; color: #1e3a5f; }
+  .order-summary .total span { font-size: 48px; color: #888; font-weight: 400; }
+  .submit-btn { width: 100%; min-height: 120px; background: #c45c3e; color: #fff; border: none; border-radius: 18px; padding: 24px 28px; font-size: 58px; font-weight: 600; cursor: pointer; }
+  .submit-btn:disabled { background: #9a9a9a; cursor: not-allowed; }
+  .completed { text-align: center; padding: 56px 28px 100px; }
+  .completed .icon { font-size: 80px; margin-bottom: 16px; }
+  .completed h2 { font-size: 72px; font-weight: 700; color: #1e3a5f; margin: 0 0 20px; }
+  .completed p { color: #555; font-size: 52px; line-height: 1.9; }
+  .completed .footer-note { margin-top: 36px; padding-top: 28px; border-top: 2px solid #eee; font-size: 46px; color: #666; }
+  .back-btn { margin-top: 40px; background: #c45c3e; color: #fff; border: none; border-radius: 18px; padding: 28px 52px; font-size: 52px; font-weight: 600; cursor: pointer; }
+  .loading { text-align: center; padding: 80px 24px; color: #666; font-size: 52px; }
+  .spinner { display: inline-block; width: 72px; height: 72px; border: 4px solid #e5e0d8; border-top-color: #1e3a5f; border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 24px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .seat-select-wrap { padding: 48px 24px; }
+  .seat-select-wrap .seat-select-label { font-size: 48px; font-weight: 700; color: #1e3a5f; margin-bottom: 20px; display: block; }
+  .seat-select-wrap select { width: 100%; padding: 24px 26px; font-size: 52px; border: 1px solid #ccc; border-radius: 14px; background: #fefefe; }
+  .seat-confirm-btn { width: 100%; background: #c45c3e; color: #fff; border: none; border-radius: 18px; padding: 28px; font-size: 52px; font-weight: 600; cursor: pointer; margin-top: 24px; }
+  .toast { position: fixed; bottom: max(28px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.85); color: #fff; padding: 24px 36px; border-radius: 28px; font-size: 48px; opacity: 0; transition: opacity .25s; z-index: 999; max-width: 92%; pointer-events: none; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">酒場みよ</div>
+  <div class="seat-badge" id="seatBadge">読み込み中...</div>
+</header>
+<div class="nomi-banner" id="nomiBanner">
+  <div class="nomi-box" id="nomiBox">
+    <div class="nomi-title">🍺 飲み放題</div>
+    <div class="nomi-timers">
+      <div class="nomi-timer-item"><span class="nomi-timer-label">残り時間</span><span class="nomi-timer-val" id="nomiRemain">--:--</span></div>
+      <div class="nomi-divider">/</div>
+      <div class="nomi-timer-item"><span class="nomi-timer-label">LOまで</span><span class="nomi-timer-val" id="nomiLO">--:--</span></div>
+    </div>
+    <div class="nomi-status-msg" id="nomiMsg"></div>
+  </div>
+</div>
+<div id="appContent"><div class="loading"><div class="spinner"></div><br>読み込み中...</div></div>
+<div class="toast" id="toast"></div>
+<iframe name="orderPostFrame" id="orderPostFrame" style="display:none;width:0;height:0;border:0"></iframe>
+
+<script>
+(function() {
+  // ★ GASのURL（execまで）。デプロイURLに合わせて変更してください
+  var GAS_BASE = "https://script.google.com/macros/s/AKfycbzHFbUHzwJGe8LG5_8o4TAq1WCWtW53OLBcfmAMnDEmrXbsr19jGgVJxooKhjDnA_Qk/exec";
+
+  var state = {
+    seat: "",
+    menu: [],
+    quantities: {},
+    nomihodai: false,
+    nomiStartedAt: null,
+    duration_min: 120,
+    lo_min: 90,
+    target_items: [],
+    timerHandle: null
+  };
+
+  function getSeatFromUrl() {
+    var m = /[?&]seat=([^&]+)/.exec(window.location.search);
+    return m ? decodeURIComponent(m[1]) : "";
+  }
+
+  function jsonp(url, callbackName, done) {
+    window[callbackName] = function(data) { done(null, data); };
+    var script = document.createElement("script");
+    script.src = url + (url.indexOf("?") >= 0 ? "&" : "?") + "callback=" + callbackName;
+    script.onerror = function() { done(new Error("読み込み失敗")); };
+    document.head.appendChild(script);
+  }
+
+  function showLoadError(msg) {
+    document.getElementById("appContent").innerHTML =
+      '<div class="loading" style="padding:24px 20px">' +
+      '<p style="font-size:48px;color:#c0392b;font-weight:bold;margin-bottom:16px">読み込みに失敗しました</p>' +
+      '<p style="font-size:46px;color:#555;word-break:break-all">' + (msg || "通信エラー") + '</p>' +
+      '<button class="seat-confirm-btn" onclick="location.reload()" style="margin-top:24px">再読み込み</button></div>';
+    showToast(msg || "エラーが発生しました");
+  }
+
+  function showSeatSelector() {
+    document.getElementById("seatBadge").textContent = "席を選択";
+    jsonp(GAS_BASE + "?action=seats", "__cbSeats", function(err, seats) {
+      if (err || (seats && seats.error)) {
+        showLoadError(seats && seats.error ? seats.error : (err && err.message));
+        return;
+      }
+      var opts = (seats || []).map(function(s) { return '<option value="' + s + '">' + s + '席</option>'; }).join("");
+      document.getElementById("appContent").innerHTML =
+        '<div class="seat-select-wrap">' +
+        '<p class="seat-select-label">お席を選んでください</p>' +
+        '<select id="seatSel">' + opts + '</select>' +
+        '<button class="seat-confirm-btn" onclick="window.__confirmSeat()">決定</button></div>';
+    });
+  }
+
+  window.__confirmSeat = function() {
+    state.seat = document.getElementById("seatSel").value;
+    document.getElementById("seatBadge").textContent = state.seat + "席";
+    loadMenuAndSession();
+  };
+
+  function loadMenuAndSession() {
+    var loaded = { menu: false, session: false };
+    var failed = false;
+    function tryRender() {
+      if (failed) return;
+      if (loaded.menu && loaded.session) renderMenu();
+    }
+    jsonp(GAS_BASE + "?action=getMenu", "__cbMenu", function(err, menu) {
+      if (err || (menu && menu.error)) { failed = true; showLoadError(menu && menu.error ? menu.error : (err && err.message)); return; }
+      state.menu = menu || [];
+      state.menu.forEach(function(item) { state.quantities[item.name] = 0; });
+      loaded.menu = true;
+      tryRender();
+    });
+    jsonp(GAS_BASE + "?action=session&seat=" + encodeURIComponent(state.seat), "__cbSession", function(err, status) {
+      if (err || (status && status.error)) { failed = true; showLoadError(status && status.error ? status.error : (err && err.message)); return; }
+      state.nomihodai = status && status.nomihodai;
+      state.nomiStartedAt = status && status.nomihodaiStartedAt;
+      state.duration_min = (status && status.duration_min) || 120;
+      state.lo_min = (status && status.lo_min) || 90;
+      state.target_items = (status && status.target_items) || [];
+      loaded.session = true;
+      tryRender();
+    });
+  }
+
+  function getNomiPhase() {
+    if (!state.nomihodai) return "none";
+    if (!state.nomiStartedAt) return "waiting";
+    var elapsed = (Date.now() - state.nomiStartedAt) / 60000;
+    if (elapsed >= state.duration_min) return "expired";
+    if (elapsed >= state.lo_min) return "lo_over";
+    return "active";
+  }
+
+  function getRemainingMin(fromMin) {
+    if (!state.nomiStartedAt) return fromMin;
+    var elapsed = (Date.now() - state.nomiStartedAt) / 60000;
+    return Math.max(0, fromMin - elapsed);
+  }
+
+  function formatMin(min) {
+    var m = Math.floor(min);
+    var s = Math.floor((min - m) * 60);
+    return m + ":" + String(s).padStart(2, "0");
+  }
+
+  function startNomiTimer() {
+    if (state.timerHandle) clearInterval(state.timerHandle);
+    updateNomiTimer();
+    state.timerHandle = setInterval(function() { updateNomiTimer(); renderPrices(); }, 10000);
+  }
+
+  function updateNomiTimer() {
+    if (!state.nomihodai) return;
+    var banner = document.getElementById("nomiBanner");
+    var box = document.getElementById("nomiBox");
+    var remain = document.getElementById("nomiRemain");
+    var lo = document.getElementById("nomiLO");
+    var msg = document.getElementById("nomiMsg");
+    if (!banner || !box) return;
+    banner.classList.add("show");
+    box.className = "nomi-box";
+    var phase = getNomiPhase();
+    if (phase === "waiting") {
+      box.classList.add("active");
+      if (remain) remain.textContent = "--:--";
+      if (lo) lo.textContent = "--:--";
+      if (msg) msg.textContent = "最初のご注文から計測開始";
+      return;
+    }
+    var remainMin = getRemainingMin(state.duration_min);
+    var loMin = getRemainingMin(state.lo_min);
+    if (phase === "expired") {
+      box.classList.add("expired");
+      if (remain) { remain.textContent = "00:00"; remain.className = "nomi-timer-val danger"; }
+      if (lo) { lo.textContent = "終了"; lo.className = "nomi-timer-val danger"; }
+      if (msg) msg.textContent = "飲み放題の時間が終了しました";
+    } else if (phase === "lo_over") {
+      box.classList.add("lo-over");
+      if (remain) { remain.textContent = formatMin(remainMin); remain.className = "nomi-timer-val" + (remainMin < 15 ? " danger" : ""); }
+      if (lo) { lo.textContent = "終了"; lo.className = "nomi-timer-val danger"; }
+      if (msg) msg.textContent = "⚠️ ラストオーダー終了";
+    } else {
+      box.classList.add("active");
+      if (remain) { remain.textContent = formatMin(remainMin); remain.className = "nomi-timer-val"; }
+      if (lo) { lo.textContent = formatMin(loMin); lo.className = "nomi-timer-val" + (loMin < 15 ? " warn" : loMin < 5 ? " danger" : ""); }
+      if (msg) msg.textContent = "";
+    }
+  }
+
+  function buildItemCard(item) {
+    var phase = getNomiPhase();
+    var isTarget = state.nomihodai && state.target_items.indexOf(item.name) !== -1;
+    var safeId = item.name.replace(/[（）【】・\s]/g, "_");
+    var disabled = false;
+    var priceHtml = "";
+    var badgeHtml = "";
+    if (isTarget) {
+      if (phase === "active" || phase === "waiting") {
+        priceHtml = '¥<span class="price-num free">0</span> <small style="color:#aaa;text-decoration:line-through">¥' + item.price + '</small>';
+        badgeHtml = '<span class="nomi-badge included">飲放</span>';
+      } else if (phase === "lo_over") {
+        priceHtml = '¥<span class="price-num regular">' + item.price + '</span>';
+        badgeHtml = '<span class="nomi-badge lo-over">LO終了</span>';
+      } else if (phase === "expired") {
+        disabled = true;
+        priceHtml = '¥<span class="price-num disabled">' + item.price + '</span>';
+        badgeHtml = '<span class="nomi-badge expired">時間終了</span>';
+      }
+    } else {
+      priceHtml = '¥<span class="price-num regular">' + item.price + '</span>';
+    }
+    var nameEsc = item.name.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+    return '<div class="item-card' + (disabled ? ' disabled' : '') + '" id="card_' + safeId + '">' +
+      '<div class="item-info"><div class="item-name">' + item.name + badgeHtml + '</div><div class="item-price">' + priceHtml + '</div></div>' +
+      '<div class="qty-ctrl">' +
+      '<button class="qty-btn minus" onclick="window.__changeQty(\'' + nameEsc + '\',-1)">−</button>' +
+      '<div class="qty-num" id="qty_' + safeId + '">0</div>' +
+      '<button class="qty-btn plus" onclick="window.__changeQty(\'' + nameEsc + '\',1)">＋</button></div></div>';
+  }
+
+  function renderMenu() {
+    if (state.nomihodai) startNomiTimer();
+    var categories = {};
+    state.menu.forEach(function(item) {
+      if (!categories[item.category]) categories[item.category] = [];
+      categories[item.category].push(item);
+    });
+    var catIcons = { "ドリンク": "🍺", "フード": "🍢" };
+    var html = "";
+    Object.keys(categories).forEach(function(cat) {
+      html += '<div class="section"><div class="section-title">' + (catIcons[cat] || "") + " " + cat + '</div></div><div class="menu-grid">';
+      categories[cat].forEach(function(item) { html += buildItemCard(item); });
+      html += '</div>';
+    });
+    html += '<div class="section"><div class="section-title">📝 備考・アレルギー</div></div>' +
+      '<div class="note-area" style="padding:0 14px 12px"><textarea id="noteText" rows="3" placeholder="例：辛め、ネギ抜き"></textarea></div>' +
+      '<div style="height:120px"></div>' +
+      '<div class="order-bar">' +
+      '<div class="order-summary"><div class="label">この注文の合計</div><div class="total" id="totalAmt">¥0 <span>（0品）</span></div></div>' +
+      '<button class="submit-btn" id="submitBtn" onclick="window.__submitOrder()" disabled>注文する</button></div>';
+    document.getElementById("appContent").innerHTML = html;
+    updateTotal();
+  }
+
+  function getEffectivePrice(item) {
+    var phase = getNomiPhase();
+    var isTarget = state.nomihodai && state.target_items.indexOf(item.name) !== -1;
+    if (isTarget && (phase === "active" || phase === "waiting")) return 0;
+    return item.price;
+  }
+
+  function updateTotal() {
+    var total = 0, count = 0;
+    state.menu.forEach(function(item) {
+      var q = state.quantities[item.name] || 0;
+      total += getEffectivePrice(item) * q;
+      count += q;
+    });
+    var el = document.getElementById("totalAmt");
+    var btn = document.getElementById("submitBtn");
+    if (el) el.innerHTML = "¥" + total.toLocaleString() + ' <span>（' + count + '品）</span>';
+    if (btn) btn.disabled = (count === 0);
+  }
+
+  window.__changeQty = function(name, delta) {
+    var current = state.quantities[name] || 0;
+    var next = Math.max(0, Math.min(9, current + delta));
+    state.quantities[name] = next;
+    var safeId = name.replace(/[（）【】・\s]/g, "_");
+    var el = document.getElementById("qty_" + safeId);
+    if (el) { el.textContent = next; el.style.color = next > 0 ? "#1B3A5C" : "#333"; el.style.fontWeight = next > 0 ? "bold" : "normal"; }
+    updateTotal();
+  };
+
+  function renderPrices() {
+    state.menu.forEach(function(item) {
+      var safeId = item.name.replace(/[（）【】・\s]/g, "_");
+      var cardEl = document.getElementById("card_" + safeId);
+      if (!cardEl) return;
+      var phase = getNomiPhase();
+      var isTarget = state.nomihodai && state.target_items.indexOf(item.name) !== -1;
+      var priceEl = cardEl.querySelector(".item-price");
+      var nameEl = cardEl.querySelector(".item-name");
+      var baseName = item.name;
+      nameEl.innerHTML = baseName;
+      if (isTarget) {
+        if (phase === "active" || phase === "waiting") {
+          priceEl.innerHTML = '¥<span class="price-num free">0</span> <small style="color:#aaa;text-decoration:line-through">¥' + item.price + '</small>';
+          nameEl.innerHTML = baseName + '<span class="nomi-badge included">飲放</span>';
+          cardEl.classList.remove("disabled");
+        } else if (phase === "lo_over") {
+          priceEl.innerHTML = '¥<span class="price-num regular">' + item.price + '</span>';
+          nameEl.innerHTML = baseName + '<span class="nomi-badge lo-over">LO終了</span>';
+          cardEl.classList.remove("disabled");
+        } else if (phase === "expired") {
+          priceEl.innerHTML = '¥<span class="price-num disabled">' + item.price + '</span>';
+          nameEl.innerHTML = baseName + '<span class="nomi-badge expired">時間終了</span>';
+          cardEl.classList.add("disabled");
+        }
+      }
+    });
+    updateTotal();
+  }
+
+  window.__submitOrder = function() {
+    var items = [];
+    state.menu.forEach(function(item) {
+      var q = state.quantities[item.name] || 0;
+      if (q > 0) items.push({ name: item.name, price: getEffectivePrice(item), qty: q });
+    });
+    if (items.length === 0) return;
+    var note = (document.getElementById("noteText") || {}).value || "";
+    var btn = document.getElementById("submitBtn");
+    if (btn) { btn.disabled = true; btn.textContent = "送信中..."; }
+
+    var form = document.createElement("form");
+    form.method = "POST";
+    form.action = GAS_BASE;
+    form.target = "orderPostFrame";
+    var inpSeat = document.createElement("input");
+    inpSeat.name = "seat";
+    inpSeat.value = state.seat;
+    var inpItems = document.createElement("input");
+    inpItems.name = "items";
+    inpItems.value = JSON.stringify(items);
+    var inpNote = document.createElement("input");
+    inpNote.name = "note";
+    inpNote.value = note;
+    form.appendChild(inpSeat);
+    form.appendChild(inpItems);
+    form.appendChild(inpNote);
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+  };
+
+  window.addEventListener("message", function(ev) {
+    var d = ev.data;
+    if (!d || d.type !== "orderResult") return;
+    var btn = document.getElementById("submitBtn");
+    if (d.success) {
+      if (!state.nomiStartedAt && state.nomihodai) {
+        state.nomiStartedAt = Date.now();
+        startNomiTimer();
+      }
+      var items = [];
+      state.menu.forEach(function(item) {
+        var q = state.quantities[item.name] || 0;
+        if (q > 0) items.push({ name: item.name, price: getEffectivePrice(item), qty: q });
+      });
+      var subtotal = items.reduce(function(s, i) { return s + i.price * i.qty; }, 0);
+      showDone(items, subtotal);
+    } else {
+      showToast("エラー: " + (d.error || "送信に失敗しました"));
+      if (btn) { btn.disabled = false; btn.textContent = "注文する"; }
+    }
+  });
+
+  function showDone(items, subtotal) {
+    var itemList = items.map(function(i) { return i.name + " ×" + i.qty; }).join("、");
+    var priceText = subtotal > 0 ? "合計 <strong>¥" + subtotal.toLocaleString() + "</strong><br><br>" : "（飲み放題対象 ¥0）<br><br>";
+    document.getElementById("appContent").innerHTML =
+      '<div class="completed">' +
+      '<div class="icon">🍺</div><h2>ご注文ありがとうございます！</h2>' +
+      '<p>' + state.seat + '席<br>' + itemList + '<br><br>' + priceText + '受け付けました。少々お待ちください。追加注文は同じ画面からどうぞ。</p>' +
+      '<p style="margin-top:28px;padding:20px;background:#fff8f5;border-radius:14px;font-size:48px;font-weight:700;color:#c45c3e;">3日前の予約で「ハイボール一杯無料‼︎」</p>' +
+      '<div class="footer-note"><p>📷 酒場みよのインスタ <a href="https://www.instagram.com/sakaba.miyo/" target="_blank" rel="noopener">@sakaba.miyo</a></p><p>📞 お問い合わせ<br>080-XXXX-XXXX</p></div>' +
+      '<button class="back-btn" onclick="window.__resetOrder()">追加注文する</button></div>';
+    window.scrollTo(0, 0);
+  }
+
+  window.__resetOrder = function() {
+    state.menu.forEach(function(item) { state.quantities[item.name] = 0; });
+    renderMenu();
+    window.scrollTo(0, 0);
+  };
+
+  function showToast(msg) {
+    var el = document.getElementById("toast");
+    if (el) { el.textContent = msg; el.classList.add("show"); setTimeout(function() { el.classList.remove("show"); }, 2500); }
+  }
+
+  // 起動
+  state.seat = getSeatFromUrl();
+  if (!state.seat) {
+    showSeatSelector();
+  } else {
+    document.getElementById("seatBadge").textContent = state.seat + "席";
+    loadMenuAndSession();
+  }
+})();
+</script>
+</body>
+</html>

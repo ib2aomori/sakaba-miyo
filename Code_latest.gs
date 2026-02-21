@@ -219,6 +219,42 @@ function checkSsId() {
 function doGet(e) {
   e = e || {};
   var params = e.parameter || {};
+  var action = params.action;
+  var callback = params.callback || "callback";
+
+  // 外部サイト（GitHub Pages）用 API（JSONP＝CORS不要）
+  if (action === "getMenu") {
+    try {
+      var menu = getMenu();
+      return ContentService.createTextOutput(callback + "(" + JSON.stringify(menu) + ")")
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    } catch (err) {
+      return ContentService.createTextOutput(callback + "(" + JSON.stringify({ error: err.message }) + ")")
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+  }
+  if (action === "session") {
+    var seat = params.seat || "";
+    try {
+      var session = getSessionStatus(seat);
+      return ContentService.createTextOutput(callback + "(" + JSON.stringify(session) + ")")
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    } catch (err) {
+      return ContentService.createTextOutput(callback + "(" + JSON.stringify({ error: err.message }) + ")")
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+  }
+  if (action === "seats") {
+    try {
+      var seats = getSeats();
+      return ContentService.createTextOutput(callback + "(" + JSON.stringify(seats) + ")")
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    } catch (err) {
+      return ContentService.createTextOutput(callback + "(" + JSON.stringify({ error: err.message }) + ")")
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+  }
+
   var page = params.page || "order";
   var seat = params.seat || "";
   var gateway = params.gateway === "1" || params.gateway === "true";
@@ -249,6 +285,34 @@ function doGet(e) {
   tmpl.seat = seat;
   return tmpl.evaluate().setTitle("【注文】一献（いっこん）")
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+// 外部サイト（GitHub Pages）からの注文送信。form POST で呼ばれ、結果を postMessage で返す
+function doPost(e) {
+  var result = { type: "orderResult", success: false, error: "" };
+  try {
+    var params = e.parameter || {};
+    var seat = params.seat || "";
+    var itemsStr = params.items || "[]";
+    var note = params.note || "";
+    var items = [];
+    try { items = JSON.parse(itemsStr); } catch (err) { result.error = "itemsの形式が不正です"; return outputOrderPostResult(result); }
+    if (!seat) { result.error = "席が指定されていません"; return outputOrderPostResult(result); }
+    var res = submitOrder(seat, items, note);
+    result.success = !!res.ok;
+    result.error = res.error || "";
+    result.sessionId = res.sessionId;
+    result.subtotal = res.subtotal;
+  } catch (err) {
+    result.error = err.message || String(err);
+  }
+  return outputOrderPostResult(result);
+}
+
+function outputOrderPostResult(result) {
+  var json = JSON.stringify(result);
+  var html = "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body><script>try{ window.parent.postMessage(" + json + ", \"*\"); }catch(e){}<\/script>送信しました</body></html>";
+  return HtmlService.createHtmlOutput(html).setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 function escapeHtmlAttr(s) {
