@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理 - 一献</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Hiragino Kana Gothic ProN","Hiragino Sans",sans-serif;
+         background: #f0f4f8; color: #333; }
+
+  header { background: #1B3A5C; color: #fff; padding: 12px 16px;
+           display: flex; align-items: center; justify-content: space-between;
+           position: sticky; top: 0; z-index: 200; }
+  header h1 { font-size: 16px; }
+  .header-right { display: flex; align-items: center; gap: 8px; }
+  .reload-btn { background: rgba(255,255,255,.15); border: none; color: #fff;
+                padding: 6px 12px; border-radius: 16px; cursor: pointer; font-size: 12px; }
+
+  .new-order-banner { display: none; background: #e74c3c; color: #fff;
+                      text-align: center; padding: 10px; font-size: 14px;
+                      font-weight: bold; cursor: pointer; animation: pulse 1s infinite; }
+  .new-order-banner.show { display: block; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.7} }
+
+  .summary-bar { background: #fff; display: flex; border-bottom: 1px solid #e0e0e0; }
+  .summary-item { flex: 1; text-align: center; padding: 10px 4px; border-right: 1px solid #eee; }
+  .summary-item:last-child { border-right: none; }
+  .s-label { font-size: 10px; color: #999; }
+  .s-value { font-size: 17px; font-weight: bold; color: #1B3A5C; margin-top: 1px; }
+  .s-value.money::before { content: "¥"; font-size: 11px; }
+
+  .tabs { display: flex; background: #fff; border-bottom: 2px solid #1B3A5C; }
+  .tab  { flex: 1; text-align: center; padding: 11px; font-size: 13px; cursor: pointer;
+          font-weight: bold; color: #999; border: none; background: none; }
+  .tab.active { color: #1B3A5C; border-bottom: 3px solid #1B3A5C; margin-bottom: -2px; }
+
+  .tab-content { display: none; padding: 12px; }
+  .tab-content.active { display: block; }
+
+  /* ========== セッションカード ========== */
+  .session-card { background: #fff; border-radius: 12px; margin-bottom: 12px;
+                  box-shadow: 0 1px 5px rgba(0,0,0,.1); overflow: hidden; }
+
+  .card-head { display: flex; align-items: center; padding: 12px 14px; gap: 10px;
+               border-bottom: 1px solid #f0f0f0; }
+  .seat-tag  { background: #1B3A5C; color: #fff; border-radius: 8px;
+               padding: 6px 11px; font-size: 17px; font-weight: bold;
+               min-width: 48px; text-align: center; }
+  .card-meta  { flex: 1; }
+  .meta-row1  { font-size: 12px; color: #888; }
+  .meta-row2  { font-size: 11px; color: #bbb; margin-top: 2px; }
+  .rotation-badge { background: #FF6B35; color: #fff; font-size: 10px;
+                    border-radius: 10px; padding: 2px 7px; margin-left: 6px; font-weight: bold; }
+  .card-total     { text-align: right; }
+  .total-amt      { font-size: 20px; font-weight: bold; color: #1B3A5C; }
+  .total-amt::before { content: "¥"; font-size: 12px; }
+
+  /* 飲み放題ステータスバー */
+  .nomi-status-bar { padding: 8px 14px; font-size: 12px; font-weight: bold;
+                     display: flex; align-items: center; gap: 8px; }
+  .nomi-status-bar.active  { background: #e8f4e8; color: #27ae60; border-bottom: 1px solid #c8e6c9; }
+  .nomi-status-bar.lo-over { background: #fff3e0; color: #e65100; border-bottom: 1px solid #ffcc80; }
+  .nomi-status-bar.expired { background: #f5f5f5; color: #888;    border-bottom: 1px solid #ddd; }
+  .nomi-status-bar.waiting { background: #e3f2fd; color: #1565c0; border-bottom: 1px solid #bbdefb; }
+  .nomi-timer-disp { margin-left: auto; font-size: 15px; font-weight: bold; }
+
+  /* 注文明細 */
+  .order-list  { padding: 0 14px 10px; }
+  .order-batch { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #eee; }
+  .order-batch:first-child { border-top: none; margin-top: 6px; }
+  .batch-time  { font-size: 11px; color: #aaa; margin-bottom: 5px; }
+  .item-row    { display: flex; align-items: center; padding: 4px 0; gap: 8px; }
+  .item-dot    { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .item-dot.drink  { background: #e74c3c; }
+  .item-dot.food   { background: #27ae60; }
+  .item-name       { flex: 1; font-size: 13px; }
+  .item-name.drink { color: #c0392b; font-weight: bold; }
+  .item-qty        { font-size: 13px; color: #666; white-space: nowrap; }
+  .item-price-disp { font-size: 12px; color: #aaa; white-space: nowrap; }
+  .item-price-disp.free { color: #27ae60; font-weight: bold; }
+  .batch-sub { text-align: right; font-size: 12px; color: #aaa; margin-top: 4px; }
+  .batch-sub::before { content: "小計 ¥"; }
+
+  /* アクションエリア */
+  .action-area { padding: 10px 14px 14px; border-top: 1px solid #f0f0f0; background: #fafafa; }
+
+  /* 飲み放題セットボタン */
+  .nomi-set-btn { width: 100%; background: #1565c0; color: #fff; border: none;
+                  border-radius: 10px; padding: 10px; font-size: 13px; font-weight: bold;
+                  cursor: pointer; margin-bottom: 8px; }
+  .nomi-set-btn:active { background: #0d47a1; }
+  .nomi-set-btn.already { background: #bdc3c7; cursor: default; font-size: 12px; }
+
+  /* 提供済みボタン */
+  .serve-btn { width: 100%; background: #27ae60; color: #fff; border: none;
+               border-radius: 10px; padding: 11px; font-size: 14px; font-weight: bold;
+               cursor: pointer; margin-bottom: 8px; }
+  .serve-btn.served { background: #bdc3c7; cursor: default; }
+
+  /* 会計 */
+  .checkout-row { display: flex; align-items: center; gap: 8px; }
+  .pax-select   { flex: 1; padding: 9px 8px; border: 1px solid #ddd; border-radius: 8px;
+                  font-size: 14px; background: #fff; }
+  .checkout-btn { background: #E8A020; color: #fff; border: none; border-radius: 10px;
+                  padding: 11px 18px; font-size: 14px; font-weight: bold; cursor: pointer;
+                  white-space: nowrap; }
+  .checkout-btn:disabled { background: #ccc; cursor: default; }
+
+  /* 履歴・売上締め */
+  .history-section-title { font-size: 12px; font-weight: bold; color: #1B3A5C;
+                            border-left: 3px solid #E8A020; padding-left: 6px;
+                            margin: 14px 0 8px; }
+  .history-card { background: #fff; border-radius: 10px; margin-bottom: 8px;
+                  padding: 12px 14px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .hrow { display: flex; justify-content: space-between; align-items: center; }
+  .h-seat { font-weight: bold; color: #1B3A5C; font-size: 15px; }
+  .h-amt  { font-weight: bold; color: #333; }
+  .h-amt::before { content: "¥"; font-size: 11px; }
+  .h-meta { font-size: 11px; color: #888; margin-top: 4px; }
+  .nomi-tag { background: #1565c0; color: #fff; font-size: 10px;
+              border-radius: 8px; padding: 1px 6px; margin-left: 4px; }
+
+  .close-day-btn { width: 100%; background: #1B3A5C; color: #fff; border: none;
+                   border-radius: 12px; padding: 15px; font-size: 15px; font-weight: bold;
+                   cursor: pointer; margin-top: 16px; }
+  .day-summary-box { background: #fff; border-radius: 12px; padding: 16px;
+                     box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 12px; }
+  .day-summary-box .row { display: flex; justify-content: space-between;
+                           padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+  .day-summary-box .row:last-child { border-bottom: none; }
+  .day-summary-box .row .lbl { color: #888; }
+  .day-summary-box .row .val { font-weight: bold; color: #1B3A5C; }
+
+  .loading { text-align: center; padding: 40px; color: #aaa; }
+  .spinner  { display: inline-block; width: 26px; height: 26px; border: 3px solid #ddd;
+              border-top-color: #1B3A5C; border-radius: 50%;
+              animation: spin .8s linear infinite; margin-bottom: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .empty { text-align: center; padding: 40px; color: #bbb; font-size: 14px; }
+  .last-updated { text-align: right; font-size: 11px; color: #bbb; padding: 4px 0 8px; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+           background: #333; color: #fff; padding: 9px 20px; border-radius: 20px;
+           font-size: 13px; opacity: 0; transition: opacity .3s; z-index: 999;
+           white-space: nowrap; pointer-events: none; }
+  .toast.show { opacity: 1; }
+
+  /* QRコード用URL */
+  .qr-section { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 5px rgba(0,0,0,.08); }
+  .qr-section h3 { font-size: 14px; color: #1B3A5C; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee; }
+  .qr-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f5f5f5; flex-wrap: wrap; }
+  .qr-row:last-child { border-bottom: none; }
+  .qr-seat-tag { background: #1B3A5C; color: #fff; border-radius: 8px; padding: 6px 12px; font-weight: bold; min-width: 44px; text-align: center; font-size: 14px; }
+  .qr-url-wrap { flex: 1; min-width: 0; }
+  .qr-url-wrap input { width: 100%; padding: 8px 10px; font-size: 12px; border: 1px solid #ddd; border-radius: 6px; }
+  .qr-copy-btn { background: #1B3A5C; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+  .qr-copy-btn:active { opacity: .9; }
+  .qr-img-wrap { flex-shrink: 0; }
+  .qr-img-wrap img { display: block; width: 80px; height: 80px; border-radius: 6px; border: 1px solid #eee; }
+
+  @media print {
+    header, .new-order-banner, .summary-bar, .tabs, .tab-content:not(#tab-qr), .toast,
+    button.reload-btn, #tab-qr button[onclick="window.print()"] { display: none !important; }
+    #tab-qr { display: block !important; padding: 0; }
+    .qr-section { break-inside: avoid; page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚙️ 一献 注文管理</h1>
+  <div class="header-right">
+    <span id="autoStatus" style="font-size:11px;color:rgba(255,255,255,.6)">●自動更新中</span>
+    <button class="reload-btn" onclick="loadAll()">🔄 今すぐ更新</button>
+  </div>
+</header>
+
+<div class="new-order-banner" id="newOrderBanner" onclick="dismissBanner()">
+  🔔 新しい注文が入りました！　タップして確認
+</div>
+
+<div class="summary-bar">
+  <div class="summary-item"><div class="s-label">本日売上</div><div class="s-value money" id="sumSales">0</div></div>
+  <div class="summary-item"><div class="s-label">本日組数</div><div class="s-value" id="sumSessions">0</div></div>
+  <div class="summary-item"><div class="s-label">客単価</div><div class="s-value money" id="sumAvg">0</div></div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" id="tab-btn-open"    onclick="switchTab('open')">🟢 営業中</button>
+  <button class="tab"        id="tab-btn-history" onclick="switchTab('history')">📋 本日の履歴</button>
+  <button class="tab"        id="tab-btn-daily"   onclick="switchTab('daily')">📈 日別売上</button>
+  <button class="tab"        id="tab-btn-sales"   onclick="switchTab('sales')">💴 売上締め</button>
+  <button class="tab"        id="tab-btn-qr"     onclick="switchTab('qr')">📱 QRコード</button>
+</div>
+
+<div id="tab-open" class="tab-content active">
+  <div class="last-updated" id="lastUpdated">-</div>
+  <div id="openSessionsContainer">
+    <div class="loading"><div class="spinner"></div><br>読み込み中...</div>
+  </div>
+</div>
+
+<div id="tab-history" class="tab-content">
+  <div id="historyContainer">
+    <div class="loading"><div class="spinner"></div><br>読み込み中...</div>
+  </div>
+</div>
+
+<div id="tab-daily" class="tab-content">
+  <p style="font-size:12px;color:#888;margin-bottom:10px">直近の日別売上です。詳細はスプレッドシートで確認できます。</p>
+  <a id="linkToSpreadsheet" href="#" target="_blank" rel="noopener" style="display:inline-block;margin-bottom:12px;font-size:13px;color:#1B3A5C">📊 スプレッドシートで詳細を見る</a>
+  <div id="dailySalesContainer">
+    <div class="loading"><div class="spinner"></div></div>
+  </div>
+</div>
+
+<div id="tab-sales" class="tab-content">
+  <div class="day-summary-box" id="daySummaryBox">
+    <div class="loading"><div class="spinner"></div></div>
+  </div>
+  <p style="font-size:12px;color:#aaa;text-align:center;margin-bottom:8px">
+    ※ 売上締めはデータを削除しません。スプレッドシートに記録されます。
+  </p>
+  <button class="close-day-btn" onclick="closeDaySales()">本日の売上を締める（営業終了）</button>
+</div>
+
+<div id="tab-qr" class="tab-content">
+  <p style="font-size:12px;color:#888;margin-bottom:12px">各席用のURLです。QRコード生成サイトや印刷でご利用ください。席指定URLを読むとその席で注文画面が開きます。</p>
+
+  <div class="qr-short-url-box" style="background:#e8f4e8;border:1px solid #a5d6a7;border-radius:10px;padding:14px;margin-bottom:16px">
+    <h4 style="font-size:14px;color:#2e7d32;margin-bottom:8px">📱 iPhone標準カメラで読めるようにする（短いURLを設定）</h4>
+    <p style="font-size:12px;color:#555;margin-bottom:12px">bit.ly や TinyURL などで、注文ページのURLを短縮したリンクを作成し、ここに登録してください。QRが短いURLになり読み取りやすくなります。<br><strong>「ファイルを開けません」と Google ドライブの案内が出る場合</strong>は、短縮URLでは直りません。プロジェクトの <strong>redirect.html</strong> を GitHub Pages 等に置き、QRの行き先をそのページにしてください（STEP_BY_STEP.md を参照）。</p>
+    <div id="qrShortUrlForm">
+      <div class="loading"><div class="spinner"></div>短縮URLを読み込み中...</div>
+    </div>
+    <button type="button" id="qrShortUrlSaveBtn" onclick="saveShortUrlsForQr()" style="margin-top:10px;padding:8px 16px;background:#2e7d32;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;display:none">短縮URLを保存</button>
+  </div>
+
+  <button type="button" onclick="window.print()" style="margin-bottom:16px;padding:10px 20px;background:#1B3A5C;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:bold">🖨️ このページを印刷（QR付き）</button>
+  <div id="qrUrlsContainer">
+    <div class="loading"><div class="spinner"></div><br>URLを取得中...</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// 状態
+// ============================================================
+var state = {
+  openSessions  : [],
+  lastOrderCount: -1,
+  servedSessions: {},
+  autoTimer     : null,
+  nomiConfig    : { duration_min: 120, lo_min: 90 }
+};
+
+// ============================================================
+// 起動・自動更新
+// ============================================================
+window.onload = function() {
+  loadAll();
+  startAutoRefresh();
+};
+
+function startAutoRefresh() {
+  if (state.autoTimer) clearInterval(state.autoTimer);
+  state.autoTimer = setInterval(silentRefresh, 15000);
+}
+
+function silentRefresh() {
+  if (!document.getElementById("tab-open").classList.contains("active")) return;
+  google.script.run.withSuccessHandler(function(sessions) {
+    var total = sessions.reduce(function(acc,s){ return acc + (s.orderCount||0); }, 0);
+    if (state.lastOrderCount >= 0 && total > state.lastOrderCount) {
+      showNewOrderBanner(); playBeep();
+    }
+    state.lastOrderCount = total;
+    state.openSessions   = sessions;
+    renderOpenSessions(sessions);
+    updateLastUpdated();
+  }).getOpenSessionsWithOrders();
+}
+
+function loadAll() {
+  loadOpenSessions();
+  loadTodaySummary();
+}
+
+function updateLastUpdated() {
+  var now = new Date();
+  document.getElementById("lastUpdated").textContent =
+    "最終更新: " + now.getHours() + ":" + String(now.getMinutes()).padStart(2,"0") + ":" + String(now.getSeconds()).padStart(2,"0");
+}
+
+// ============================================================
+// タブ
+// ============================================================
+function switchTab(tab) {
+  ["open","history","daily","sales","qr"].forEach(function(t) {
+    var el = document.getElementById("tab-"+t);
+    var btn = document.getElementById("tab-btn-"+t);
+    if (el) el.classList.remove("active");
+    if (btn) btn.classList.remove("active");
+  });
+  var el = document.getElementById("tab-"+tab);
+  var btn = document.getElementById("tab-btn-"+tab);
+  if (el) el.classList.add("active");
+  if (btn) btn.classList.add("active");
+  if (tab === "history") loadHistory();
+  if (tab === "daily")   loadDailySales();
+  if (tab === "sales")   loadDaySummary();
+  if (tab === "qr")      loadQrUrls();
+}
+
+// ============================================================
+// QRコード用URL
+// ============================================================
+function loadQrUrls() {
+  var container = document.getElementById("qrUrlsContainer");
+  var formContainer = document.getElementById("qrShortUrlForm");
+  if (!container) return;
+  container.innerHTML = '<div class="loading"><div class="spinner"></div><br>URLを取得中...</div>';
+  google.script.run
+    .withSuccessHandler(function(baseUrl) {
+      google.script.run.withSuccessHandler(function(seats) {
+        google.script.run.withSuccessHandler(function(shortUrls) {
+          renderShortUrlForm(formContainer, baseUrl, seats, shortUrls);
+          renderQrUrls(container, baseUrl, seats, shortUrls);
+        }).getShortUrlsForQr();
+      }).getSeats();
+    })
+    .withFailureHandler(function() {
+      google.script.run.withSuccessHandler(function(seats) {
+        google.script.run.withSuccessHandler(function(shortUrls) {
+          renderShortUrlForm(formContainer, "", seats, shortUrls);
+          renderQrUrls(container, "", seats, shortUrls);
+        }).getShortUrlsForQr();
+      }).getSeats();
+    })
+    .getBaseUrl();
+}
+
+function renderShortUrlForm(container, baseUrl, seats, shortUrls) {
+  if (!container) return;
+  shortUrls = shortUrls || {};
+  var html = '<table style="width:100%;font-size:12px;border-collapse:collapse">';
+  html += '<tr><th style="text-align:left;padding:4px 8px 4px 0">共通</th><td style="padding:4px 0"><input type="url" id="short-base" data-qr-key="base" placeholder="https://bit.ly/xxx" style="width:100%;max-width:280px;padding:6px 8px;border:1px solid #a5d6a7;border-radius:6px" value="' + escapeHtml(shortUrls.base || "") + '"></td></tr>';
+  (seats || []).forEach(function(seat) {
+    var key = String(seat).replace(/\s/g, "_");
+    html += '<tr><th style="text-align:left;padding:4px 8px 4px 0">' + escapeHtml(seat) + '</th><td style="padding:4px 0"><input type="url" id="short-' + key + '" data-qr-key="' + escapeHtml(seat) + '" placeholder="https://bit.ly/xxx" style="width:100%;max-width:280px;padding:6px 8px;border:1px solid #a5d6a7;border-radius:6px" value="' + escapeHtml(shortUrls[seat] || "") + '"></td></tr>';
+  });
+  html += '</table>';
+  container.innerHTML = html;
+  document.getElementById("qrShortUrlSaveBtn").style.display = "inline-block";
+}
+
+function saveShortUrlsForQr() {
+  var shortUrls = {};
+  var inputs = document.querySelectorAll("#qrShortUrlForm input[data-qr-key]");
+  for (var i = 0; i < inputs.length; i++) {
+    var key = inputs[i].getAttribute("data-qr-key");
+    var val = inputs[i].value ? inputs[i].value.trim() : "";
+    if (key && val) shortUrls[key] = val;
+  }
+  google.script.run
+    .withSuccessHandler(function() {
+      showToast("短縮URLを保存しました");
+      loadQrUrls();
+    })
+    .withFailureHandler(function() { showToast("保存に失敗しました"); })
+    .setShortUrlsForQr(shortUrls);
+}
+
+function renderQrUrls(container, baseUrl, seats, shortUrls) {
+  shortUrls = shortUrls || {};
+  var qrApi = "https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=";
+  var html = "";
+  if (baseUrl) {
+    var displayBase = shortUrls.base || baseUrl;
+    var baseEnc = encodeURIComponent(displayBase);
+    html += '<div class="qr-section">';
+    html += '<h3>共通（席選択あり）</h3>';
+    html += '<div class="qr-row">';
+    html += '<div class="qr-url-wrap"><input type="text" readonly value="' + escapeHtml(displayBase) + '" id="qr-url-base"></div>';
+    html += '<button class="qr-copy-btn" onclick="copyQrUrl(\'qr-url-base\')">コピー</button>';
+    html += '<div class="qr-img-wrap"><img src="' + qrApi + baseEnc + '" alt="QR"></div>';
+    html += '</div></div>';
+  } else {
+    html += '<div class="qr-section"><p style="font-size:12px;color:#c00">※ Webアプリとしてデプロイした状態で開くと、ここにURLが表示されます。</p></div>';
+  }
+  html += '<div class="qr-section"><h3>席別（スキャンでその席の注文画面）</h3>';
+  (seats || []).forEach(function(seat) {
+    var longUrl = baseUrl ? (baseUrl + (baseUrl.indexOf("?") >= 0 ? "&" : "?") + "seat=" + encodeURIComponent(seat)) : "";
+    var displayUrl = shortUrls[seat] || longUrl;
+    var id = "qr-url-" + String(seat).replace(/\s/g, "_");
+    var enc = encodeURIComponent(displayUrl);
+    html += '<div class="qr-row">';
+    html += '<span class="qr-seat-tag">' + escapeHtml(seat) + '</span>';
+    html += '<div class="qr-url-wrap"><input type="text" readonly value="' + escapeHtml(displayUrl) + '" id="' + id + '"></div>';
+    html += '<button class="qr-copy-btn" onclick="copyQrUrl(\'' + id + '\')">コピー</button>';
+    if (displayUrl) html += '<div class="qr-img-wrap"><img src="' + qrApi + enc + '" alt="QR ' + escapeHtml(seat) + '"></div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function copyQrUrl(inputId) {
+  var input = document.getElementById(inputId);
+  if (!input || !input.value) return;
+  input.select();
+  input.setSelectionRange(0, 99999);
+  try {
+    document.execCommand("copy");
+    showToast("URLをコピーしました");
+  } catch (e) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(input.value).then(function() { showToast("URLをコピーしました"); });
+    }
+  }
+  input.blur();
+}
+
+function escapeHtml(s) {
+  if (!s) return "";
+  var div = document.createElement("div");
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+// ============================================================
+// 新着バナー・音
+// ============================================================
+function showNewOrderBanner() { document.getElementById("newOrderBanner").classList.add("show"); }
+function dismissBanner() {
+  document.getElementById("newOrderBanner").classList.remove("show");
+  switchTab("open");
+}
+function playBeep() {
+  try {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    var osc = ctx.createOscillator(); var gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.4);
+  } catch(e){}
+}
+
+// ============================================================
+// サマリー
+// ============================================================
+function loadTodaySummary() {
+  google.script.run.withSuccessHandler(function(s) {
+    document.getElementById("sumSales").textContent    = s.totalSales.toLocaleString();
+    document.getElementById("sumSessions").textContent = s.sessionCount + "組";
+    document.getElementById("sumAvg").textContent      = s.avgSpend.toLocaleString();
+  }).getTodaySummary();
+}
+
+// ============================================================
+// 飲み放題フェーズ判定（管理画面用）
+// ============================================================
+function getNomiPhase(s) {
+  if (!s.nomihodai) return "none";
+  if (!s.nomihodaiStartedAt) return "waiting";
+  var elapsed = (Date.now() - s.nomihodaiStartedAt) / 60000;
+  if (elapsed >= s.duration_min) return "expired";
+  if (elapsed >= s.lo_min)       return "lo_over";
+  return "active";
+}
+
+function formatRemain(s, fromMin) {
+  if (!s.nomihodaiStartedAt) return "--:--";
+  var elapsed = (Date.now() - s.nomihodaiStartedAt) / 60000;
+  var remain  = Math.max(0, fromMin - elapsed);
+  var m = Math.floor(remain);
+  var sec = Math.floor((remain - m) * 60);
+  return m + ":" + String(sec).padStart(2,"0");
+}
+
+// ============================================================
+// 営業中セッション
+// ============================================================
+function loadOpenSessions() {
+  google.script.run.withSuccessHandler(function(sessions) {
+    state.openSessions = sessions;
+    var total = sessions.reduce(function(acc,s){ return acc+(s.orderCount||0); },0);
+    state.lastOrderCount = total;
+    renderOpenSessions(sessions);
+    updateLastUpdated();
+  }).getOpenSessionsWithOrders();
+}
+
+function renderOpenSessions(sessions) {
+  var container = document.getElementById("openSessionsContainer");
+  if (!sessions || sessions.length === 0) {
+    container.innerHTML = '<div class="empty">🍺 現在オープン中の席はありません</div>';
+    return;
+  }
+
+  var bySeat = {};
+  sessions.forEach(function(s) {
+    if (!bySeat[s.seat]) bySeat[s.seat] = [];
+    bySeat[s.seat].push(s);
+  });
+
+  var html = Object.keys(bySeat).sort().map(function(seat) {
+    return bySeat[seat].map(function(s, idx) {
+      var isMulti = bySeat[seat].length > 1;
+      var phase   = getNomiPhase(s);
+      var isServed = !!state.servedSessions[s.sessionId];
+
+      // 飲み放題ステータスバー
+      var nomiBarHtml = "";
+      if (s.nomihodai) {
+        var barClass, barText, timerText = "";
+        if (phase === "waiting") {
+          barClass = "waiting"; barText = "🍺 飲み放題セット済み（最初の注文で計測開始）";
+        } else if (phase === "active") {
+          barClass = "active";
+          timerText = "残り " + formatRemain(s, s.duration_min) + " / LO " + formatRemain(s, s.lo_min);
+          barText = "🍺 飲み放題 進行中";
+        } else if (phase === "lo_over") {
+          barClass = "lo-over";
+          timerText = "残り " + formatRemain(s, s.duration_min);
+          barText = "⚠️ ラストオーダー終了";
+        } else {
+          barClass = "expired"; barText = "⏱ 飲み放題 時間終了";
+        }
+        nomiBarHtml =
+          '<div class="nomi-status-bar ' + barClass + '">' +
+            '<span>' + barText + '</span>' +
+            (timerText ? '<span class="nomi-timer-disp">' + timerText + '</span>' : '') +
+          '</div>';
+      }
+
+      // 注文明細
+      var ordersHtml = "";
+      if (s.orders && s.orders.length > 0) {
+        ordersHtml = s.orders.map(function(o) {
+          var itemsHtml = o.items.map(function(item) {
+            var isDrink   = item.category === "ドリンク";
+            var cls       = isDrink ? "drink" : "food";
+            var isFree    = item.price === 0;
+            var priceDisp = isFree
+              ? '<span class="item-price-disp free">¥0（飲放）</span>'
+              : '<span class="item-price-disp">¥' + (item.price * item.qty).toLocaleString() + '</span>';
+            return '<div class="item-row">' +
+              '<div class="item-dot ' + cls + '"></div>' +
+              '<div class="item-name ' + cls + '">' + item.name + '</div>' +
+              '<div class="item-qty">×' + item.qty + '</div>' +
+              priceDisp +
+            '</div>';
+          }).join("");
+          return '<div class="order-batch">' +
+            '<div class="batch-time">🕐 ' + o.orderedAt + '</div>' +
+            itemsHtml +
+            '<div class="batch-sub">' + Number(o.subtotal).toLocaleString() + '</div>' +
+          '</div>';
+        }).join("");
+      } else {
+        ordersHtml = '<p style="color:#bbb;font-size:13px;padding:8px 0">注文データがありません</p>';
+      }
+
+      // 飲み放題セットボタン
+      var nomiSetHtml = s.nomihodai
+        ? '<button class="nomi-set-btn already" disabled>🍺 飲み放題セット済み</button>'
+        : '<button class="nomi-set-btn" onclick="setNomihodai(\'' + s.sessionId + '\')">🍺 飲み放題をセットする</button>';
+
+      // 提供ボタン
+      var serveHtml = isServed
+        ? '<button class="serve-btn served" disabled>✅ 提供済み</button>'
+        : '<button class="serve-btn" onclick="markServed(\'' + s.sessionId + '\')">🍽️ 料理・ドリンクを提供した</button>';
+
+      return '<div class="session-card" id="sc_' + s.sessionId + '">' +
+        '<div class="card-head">' +
+          '<div class="seat-tag">' + seat + '</div>' +
+          '<div class="card-meta">' +
+            '<div class="meta-row1">入店 ' + s.startedAt +
+              (isMulti ? '<span class="rotation-badge">' + (bySeat[seat].length - idx) + '回転目</span>' : '') +
+            '</div>' +
+            '<div class="meta-row2">' + s.sessionId + '</div>' +
+          '</div>' +
+          '<div class="card-total"><div class="total-amt">' + Number(s.total).toLocaleString() + '</div></div>' +
+        '</div>' +
+        nomiBarHtml +
+        '<div class="order-list">' + ordersHtml + '</div>' +
+        '<div class="action-area">' +
+          nomiSetHtml +
+          serveHtml +
+          '<div class="checkout-row">' +
+            '<select class="pax-select" id="pax_' + s.sessionId + '">' +
+              [1,2,3,4,5,6,7,8].map(function(n){ return '<option value="'+n+'">'+n+'名</option>'; }).join("") +
+            '</select>' +
+            '<button class="checkout-btn" onclick="checkout(\'' + s.sessionId + '\',' + Number(s.total) + ')">会計済みにする</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join("");
+  }).join("");
+
+  container.innerHTML = html;
+}
+
+// ============================================================
+// 飲み放題セット
+// ============================================================
+function setNomihodai(sessionId) {
+  if (!confirm("この席に飲み放題をセットします。\n最初の注文時刻から120分計測します。\nよろしいですか？")) return;
+
+  google.script.run.withSuccessHandler(function(result) {
+    if (result.ok) {
+      showToast("✅ 飲み放題をセットしました");
+      loadOpenSessions();
+    } else {
+      showToast("❌ " + result.error);
+    }
+  }).setNomihodai(sessionId);
+}
+
+// ============================================================
+// 提供済み
+// ============================================================
+function markServed(sessionId) {
+  if (!confirm("料理・ドリンクを全て提供しましたか？")) return;
+  state.servedSessions[sessionId] = true;
+  var btn = document.getElementById("sc_" + sessionId)
+            && document.querySelector("#sc_" + sessionId + " .serve-btn");
+  if (btn) { btn.classList.add("served"); btn.disabled = true; btn.textContent = "✅ 提供済み"; }
+  showToast("✅ 提供済みにしました");
+}
+
+// ============================================================
+// 会計
+// ============================================================
+function checkout(sessionId, total) {
+  if (!state.servedSessions[sessionId]) {
+    if (!confirm("⚠️ 提供済みチェックがされていません。\nこのまま会計を締めますか？")) return;
+  }
+  var paxSel    = document.getElementById("pax_" + sessionId);
+  var partySize = paxSel ? parseInt(paxSel.value) : 1;
+  if (!confirm(sessionId + " を会計済みにします\n合計: ¥" + total.toLocaleString() + "　" + partySize + "名")) return;
+
+  var btn = document.querySelector("#sc_" + sessionId + " .checkout-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "処理中..."; }
+
+  google.script.run.withSuccessHandler(function(result) {
+    if (result.ok) {
+      showToast("✅ 会計完了 ¥" + total.toLocaleString());
+      delete state.servedSessions[sessionId];
+      loadAll();
+    } else {
+      showToast("❌ " + result.error);
+      if (btn) { btn.disabled = false; btn.textContent = "会計済みにする"; }
+    }
+  }).closeSession(sessionId, partySize);
+}
+
+// ============================================================
+// 履歴
+// ============================================================
+function loadHistory() {
+  var c = document.getElementById("historyContainer");
+  c.innerHTML = '<div class="loading"><div class="spinner"></div><br>読み込み中...</div>';
+  google.script.run.withSuccessHandler(function(sessions) {
+    var closed = sessions.filter(function(s){ return s.status === "closed"; });
+    if (closed.length === 0) {
+      c.innerHTML = '<div class="empty">本日の会計済み記録はまだありません</div>';
+      return;
+    }
+    var bySeat = {};
+    closed.forEach(function(s) {
+      if (!bySeat[s.seat]) bySeat[s.seat] = [];
+      bySeat[s.seat].push(s);
+    });
+    var html = Object.keys(bySeat).sort().map(function(seat) {
+      var rows = bySeat[seat];
+      return '<div class="history-section-title">' + seat + '席</div>' +
+        rows.map(function(s, idx) {
+          return '<div class="history-card">' +
+            '<div class="hrow">' +
+              '<div class="h-seat">' + seat + '席' +
+                (rows.length > 1 ? ' <span style="font-size:11px;color:#aaa">' + (idx+1) + '組目</span>' : '') +
+                (s.nomihodai ? '<span class="nomi-tag">飲放</span>' : '') +
+              '</div>' +
+              '<div class="h-amt">' + Number(s.total).toLocaleString() + '</div>' +
+            '</div>' +
+            '<div class="h-meta">入店 ' + s.startedAt + ' → 会計 ' + (s.closedAt||"-") +
+              '　' + (s.partySize !== "-" ? s.partySize + "名" : "人数未入力") + '</div>' +
+          '</div>';
+        }).join("");
+    }).join("");
+    c.innerHTML = html;
+  }).getAllSessionsToday();
+}
+
+// ============================================================
+// 日別売上
+// ============================================================
+function loadDailySales() {
+  var container = document.getElementById("dailySalesContainer");
+  var linkEl = document.getElementById("linkToSpreadsheet");
+  if (!container) return;
+  container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  google.script.run.withSuccessHandler(function(url) {
+    if (linkEl && url) { linkEl.href = url; linkEl.style.display = "inline-block"; }
+  }).getSpreadsheetUrl();
+  google.script.run.withSuccessHandler(function(rows) {
+    if (!rows || rows.length === 0) {
+      container.innerHTML = '<div class="empty">日別データがありません。売上締めを実行するとここに表示されます。</div>';
+      return;
+    }
+    var html = '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+      '<tr style="background:#1B3A5C;color:#fff"><th style="padding:8px;text-align:left">日付</th><th style="padding:8px;text-align:right">組数</th><th style="padding:8px;text-align:right">人数</th><th style="padding:8px;text-align:right">売上</th></tr>';
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      html += '<tr style="border-bottom:1px solid #eee">' +
+        '<td style="padding:8px">' + (r.date || "-") + '</td>' +
+        '<td style="padding:8px;text-align:right">' + (r.sessionCount || 0) + '組</td>' +
+        '<td style="padding:8px;text-align:right">' + (r.totalPax || 0) + '名</td>' +
+        '<td style="padding:8px;text-align:right">¥' + (r.totalSales || 0).toLocaleString() + '</td></tr>';
+    }
+    html += '</table>';
+    container.innerHTML = html;
+  }).getSalesByDate(31);
+}
+
+// ============================================================
+// 売上締め
+// ============================================================
+function loadDaySummary() {
+  var box = document.getElementById("daySummaryBox");
+  box.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  google.script.run.withSuccessHandler(function(s) {
+    box.innerHTML =
+      '<div class="row"><div class="lbl">📅 集計日</div><div class="val">' + s.date + '</div></div>' +
+      '<div class="row"><div class="lbl">👥 総来店組数</div><div class="val">' + s.sessionCount + '組</div></div>' +
+      '<div class="row"><div class="lbl">👤 総来店人数</div><div class="val">' + (s.totalPax||0) + '名</div></div>' +
+      '<div class="row"><div class="lbl">💴 総売上</div><div class="val">¥' + s.totalSales.toLocaleString() + '</div></div>' +
+      '<div class="row"><div class="lbl">📊 客単価</div><div class="val">¥' + s.avgSpend.toLocaleString() + '</div></div>';
+  }).getTodaySummary();
+}
+
+function closeDaySales() {
+  if (state.openSessions && state.openSessions.length > 0) {
+    if (!confirm("⚠️ まだ会計が終わっていない席が " + state.openSessions.length + "席 あります。\nそれでも売上を締めますか？")) return;
+  } else {
+    if (!confirm("本日の売上を締めます。よろしいですか？")) return;
+  }
+  google.script.run.withSuccessHandler(function(result) {
+    if (result.ok) {
+      showToast("✅ 本日の売上を締めました");
+      loadTodaySummary();
+      loadAll();
+    } else {
+      showToast("❌ " + result.error);
+    }
+  }).closeDaySales();
+}
+
+function showToast(msg) {
+  var el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  setTimeout(function(){ el.classList.remove("show"); }, 3000);
+}
+</script>
+</body>
+</html>
