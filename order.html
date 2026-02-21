@@ -125,10 +125,16 @@
   }
 
   function showLoadError(msg) {
+    var detail = (msg || "通信エラー").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    var hint = "";
+    if (!msg || msg === "読み込み失敗" || msg.indexOf("通信") >= 0) {
+      hint = "<p style='font-size:42px;color:#1e3a5f;margin-top:24px;line-height:1.6'>※ GASの「デプロイ」→「デプロイを管理」→「編集」で、<strong>「アクセスできるユーザー」を「全員」</strong>に設定してください。設定後、もう一度「再読み込み」を押してください。</p>";
+    }
     document.getElementById("appContent").innerHTML =
       '<div class="loading" style="padding:24px 20px">' +
       '<p style="font-size:48px;color:#c0392b;font-weight:bold;margin-bottom:16px">読み込みに失敗しました</p>' +
-      '<p style="font-size:46px;color:#555;word-break:break-all">' + (msg || "通信エラー") + '</p>' +
+      '<p style="font-size:46px;color:#555;word-break:break-all">' + detail + '</p>' +
+      hint +
       '<button class="seat-confirm-btn" onclick="location.reload()" style="margin-top:24px">再読み込み</button></div>';
     showToast(msg || "エラーが発生しました");
   }
