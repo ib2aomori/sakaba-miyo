@@ -117,9 +117,10 @@
   }
 
   function jsonp(url, callbackName, done) {
+    var unique = "_=" + Date.now() + "x" + Math.random().toString(36).slice(2);
     window[callbackName] = function(data) { done(null, data); };
     var script = document.createElement("script");
-    script.src = url + (url.indexOf("?") >= 0 ? "&" : "?") + "callback=" + callbackName;
+    script.src = url + (url.indexOf("?") >= 0 ? "&" : "?") + "callback=" + encodeURIComponent(callbackName) + "&" + unique;
     script.onerror = function() { done(new Error("読み込み失敗")); };
     document.head.appendChild(script);
   }
@@ -162,28 +163,25 @@
   };
 
   function loadMenuAndSession() {
-    var loaded = { menu: false, session: false };
-    var failed = false;
-    function tryRender() {
-      if (failed) return;
-      if (loaded.menu && loaded.session) renderMenu();
-    }
     jsonp(GAS_BASE + "?action=getMenu", "__cbMenu", function(err, menu) {
-      if (err || (menu && menu.error)) { failed = true; showLoadError(menu && menu.error ? menu.error : (err && err.message)); return; }
+      if (err || (menu && menu.error)) {
+        showLoadError(menu && menu.error ? menu.error : (err && err.message));
+        return;
+      }
       state.menu = menu || [];
       state.menu.forEach(function(item) { state.quantities[item.name] = 0; });
-      loaded.menu = true;
-      tryRender();
-    });
-    jsonp(GAS_BASE + "?action=session&seat=" + encodeURIComponent(state.seat), "__cbSession", function(err, status) {
-      if (err || (status && status.error)) { failed = true; showLoadError(status && status.error ? status.error : (err && err.message)); return; }
-      state.nomihodai = status && status.nomihodai;
-      state.nomiStartedAt = status && status.nomihodaiStartedAt;
-      state.duration_min = (status && status.duration_min) || 120;
-      state.lo_min = (status && status.lo_min) || 90;
-      state.target_items = (status && status.target_items) || [];
-      loaded.session = true;
-      tryRender();
+      jsonp(GAS_BASE + "?action=session&seat=" + encodeURIComponent(state.seat), "__cbSession", function(err2, status) {
+        if (err2 || (status && status.error)) {
+          showLoadError(status && status.error ? status.error : (err2 && err2.message));
+          return;
+        }
+        state.nomihodai = status && status.nomihodai;
+        state.nomiStartedAt = status && status.nomihodaiStartedAt;
+        state.duration_min = (status && status.duration_min) || 120;
+        state.lo_min = (status && status.lo_min) || 90;
+        state.target_items = (status && status.target_items) || [];
+        renderMenu();
+      });
     });
   }
 
